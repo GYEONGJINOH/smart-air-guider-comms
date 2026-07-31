@@ -1,0 +1,16 @@
+{
+  "name": "smart-air-guider-gateway",
+  "version": "2.0.0",
+  "description": "MQTT 브로커를 구독하고, 프론트엔드용 GET/POST /sensor API도 같은 프로세스에서 제공하는 게이트웨이+백엔드",
+  "main": "gateway.js",
+  "scripts": {
+    "start": "node gateway.js",
+    "dev": "node --watch gateway.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mqtt": "^5.10.1"
+  }
+}
