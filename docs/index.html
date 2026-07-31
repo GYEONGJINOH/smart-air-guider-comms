@@ -342,7 +342,7 @@
   iframe#liveFrontend {
     display: block;
     width: 100%;
-    height: 640px;
+    height: 720px;
     border: 0;
   }
 
@@ -361,6 +361,22 @@
     </div>
     <div class="sim-badge"><span class="dot"></span>시뮬레이션 · 실제 onrender.com 미연결</div>
   </header>
+
+  <section class="panel">
+    <h2>실제 프론트엔드 (라이브 메인보드)</h2>
+    <div class="live-toolbar">
+      <span class="url">smart-air-guider.vercel.app</span>
+      <a href="https://smart-air-guider.vercel.app/" target="_blank" rel="noopener">새 탭에서 열기 ↗</a>
+    </div>
+    <div class="live-frame-wrap">
+      <iframe
+        id="liveFrontend"
+        src="https://smart-air-guider.vercel.app/"
+        title="Smart Air Guider 실제 프론트엔드"
+        referrerpolicy="no-referrer"
+      ></iframe>
+    </div>
+  </section>
 
   <section class="panel">
     <h2>파이프라인</h2>
@@ -384,23 +400,6 @@
       <div class="console" id="console"></div>
     </section>
   </div>
-
-  <section class="panel">
-    <h2>실제 프론트엔드 (라이브)</h2>
-    <div class="live-toolbar">
-      <span class="url">smart-air-guider.vercel.app</span>
-      <a href="https://smart-air-guider.vercel.app/" target="_blank" rel="noopener">새 탭에서 열기 ↗</a>
-    </div>
-    <div class="live-frame-wrap">
-      <iframe
-        id="liveFrontend"
-        src="https://smart-air-guider.vercel.app/"
-        title="Smart Air Guider 실제 프론트엔드"
-        loading="lazy"
-        referrerpolicy="no-referrer"
-      ></iframe>
-    </div>
-  </section>
 
   <footer class="note">
     구성: ESP32 센서 노드(DHT22·INA219·PIR 3존·서보 yaw/pitch) → MQTT 브로커(TLS) → 게이트웨이(Node.js) → 백엔드(Express+Socket.IO) → 프론트엔드(<a href="https://smart-air-guider.vercel.app/" target="_blank" rel="noopener">smart-air-guider.vercel.app</a>, GET /sensor 폴링). 이 페이지의 수치는 실제 하드웨어가 아닌 동일한 로직의 로컬 시뮬레이션입니다.
