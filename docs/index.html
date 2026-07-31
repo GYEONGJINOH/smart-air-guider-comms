@@ -1,0 +1,629 @@
+<title>Smart Air Guider — 통신 파이프라인</title>
+<style>
+  :root {
+    --bg: #eef3f4;
+    --panel: #ffffff;
+    --panel-2: #f3f7f8;
+    --line: #d6e0e2;
+    --text: #10202a;
+    --muted: #5c7480;
+    --accent: #0e8c79;
+    --accent-soft: #d6efe9;
+    --amber: #a5661a;
+    --amber-soft: #f6e4ce;
+    --ok: #2f9e5b;
+    --warn: #b5860f;
+    --crit: #c2483d;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", "Roboto Mono", Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", "Pretendard", "Noto Sans KR", system-ui, sans-serif;
+    --radius: 10px;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b141c;
+    --panel: #101d27;
+    --panel-2: #0d1922;
+    --line: #1e313d;
+    --text: #e7f0f2;
+    --muted: #7c93a3;
+    --accent: #4fd8c4;
+    --accent-soft: #163832;
+    --amber: #f2a65a;
+    --amber-soft: #3a2a16;
+    --ok: #59c27c;
+    --warn: #e2b93b;
+    --crit: #e2635a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b141c;
+      --panel: #101d27;
+      --panel-2: #0d1922;
+      --line: #1e313d;
+      --text: #e7f0f2;
+      --muted: #7c93a3;
+      --accent: #4fd8c4;
+      --accent-soft: #163832;
+      --amber: #f2a65a;
+      --amber-soft: #3a2a16;
+      --ok: #59c27c;
+      --warn: #e2b93b;
+      --crit: #e2635a;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    padding: 28px 20px 60px;
+    display: flex;
+    justify-content: center;
+  }
+  .page { width: 100%; max-width: 1180px; display: flex; flex-direction: column; gap: 20px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  header.top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header.top h1 {
+    font-size: 22px;
+    margin: 4px 0 6px;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  header.top p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13.5px;
+    max-width: 56ch;
+    line-height: 1.55;
+  }
+  .sim-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--warn);
+    background: var(--amber-soft);
+    border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+    padding: 7px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .sim-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); animation: blink 1.6s ease-in-out infinite; }
+
+  section.panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 18px 20px;
+  }
+  section.panel > h2 {
+    font-size: 12px;
+    margin: 0 0 14px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* ---------- pipeline ---------- */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+  .node {
+    flex: 1 1 0;
+    min-width: 128px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    transition: border-color .25s ease, box-shadow .25s ease;
+  }
+  .node.lit {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent), 0 0 18px -6px var(--accent);
+  }
+  .node .name { font-size: 12.5px; font-weight: 600; }
+  .node .sub { font-family: var(--mono); font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+  .node .status { display: flex; align-items: center; gap: 5px; margin-top: 2px; }
+  .node .status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .node .status .label { font-family: var(--mono); font-size: 10px; color: var(--ok); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .conn {
+    flex: 0 0 56px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .conn .track { width: 100%; height: 1px; background: var(--line); position: relative; }
+  .conn .caption {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 8.5px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .conn .packet {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 6px; height: 6px;
+    margin-top: -3px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    opacity: 0;
+  }
+  .conn .packet.go { animation: travel 0.7s linear forwards; }
+
+  @keyframes travel {
+    0% { left: 0; opacity: 1; }
+    92% { opacity: 1; }
+    100% { left: calc(100% - 6px); opacity: 0; }
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.25; }
+  }
+
+  /* ---------- dashboard grid ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 860px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 118px;
+  }
+  .card .label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .card .value {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+  }
+  .card .value .unit { font-size: 15px; color: var(--muted); margin-left: 3px; }
+  .card .foot { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: auto; }
+  .card .spark { height: 26px; }
+
+  .mode-pill {
+    align-self: flex-start;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .mode-pill.idle {
+    color: var(--muted);
+    border-color: var(--line);
+    background: var(--panel-2);
+  }
+
+  /* ---------- position + console row ---------- */
+  .row2 {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 860px) { .row2 { grid-template-columns: 1fr; } }
+
+  canvas#radar { width: 100%; aspect-ratio: 1 / 1; display: block; }
+  .radar-legend {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .radar-legend b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .console {
+    background: var(--panel-2);
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    padding: 10px 12px;
+    height: 230px;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.75;
+  }
+  .console .row { display: flex; gap: 8px; white-space: pre; }
+  .console .t { color: var(--muted); flex: 0 0 auto; }
+  .console .tag {
+    flex: 0 0 auto;
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 10px;
+  }
+  .tag.sensor { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+  .tag.broker { background: color-mix(in srgb, var(--amber) 20%, transparent); color: var(--amber); }
+  .tag.gateway { background: color-mix(in srgb, #7d9cf1 25%, transparent); color: #7d9cf1; }
+  .tag.backend { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
+  .tag.frontend { background: color-mix(in srgb, var(--muted) 25%, transparent); color: var(--text); }
+  .console .msg { color: var(--text); overflow-wrap: anywhere; white-space: pre-wrap; }
+
+  footer.note {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+    padding-top: 4px;
+    border-top: 1px solid var(--line);
+  }
+  footer.note a { color: var(--accent); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .conn .packet.go { animation: none; opacity: 0; }
+    .sim-badge .dot { animation: none; }
+  }
+</style>
+
+<div class="page">
+  <header class="top">
+    <div>
+      <div class="eyebrow">smart-air-guider · comms module</div>
+      <h1>프론트엔드 → 백엔드 → 게이트웨이 → MQTT → 센서 노드</h1>
+      <p>사용자 위치 추적형 송풍 방향 제어 시스템의 통신 파이프라인을 실시간으로 시각화합니다. 대시보드에 보이는 값이 어디서 왔는지, 원본 발행 지점인 센서 노드까지 거슬러 추적하는 방향으로 재현했습니다.</p>
+    </div>
+    <div class="sim-badge"><span class="dot"></span>시뮬레이션 · 실제 onrender.com 미연결</div>
+  </header>
+
+  <section class="panel">
+    <h2>파이프라인</h2>
+    <div class="pipeline" id="pipeline"></div>
+  </section>
+
+  <section class="grid" id="cards"></section>
+
+  <div class="row2">
+    <section class="panel">
+      <h2>사용자 위치 · 송풍 방향</h2>
+      <canvas id="radar" width="300" height="300"></canvas>
+      <div class="radar-legend">
+        <span>Y(높이) <b id="valY">–</b> cm</span>
+        <span>pitch <b id="valPitch">–</b>°</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>구간별 로그</h2>
+      <div class="console" id="console"></div>
+    </section>
+  </div>
+
+  <footer class="note">
+    구성: ESP32 센서 노드(DHT22·INA219·PIR 3존·서보 yaw/pitch) → MQTT 브로커(TLS) → 게이트웨이(Node.js) → 백엔드(Express+Socket.IO) → 프론트엔드(<a href="https://smart-air-guider.vercel.app/" target="_blank" rel="noopener">smart-air-guider.vercel.app</a>, GET /sensor 폴링). 이 페이지의 수치는 실제 하드웨어가 아닌 동일한 로직의 로컬 시뮬레이션입니다.
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const NODES = [
+    { id: "frontend", name: "프론트엔드",    sub: "GET /sensor · 2s poll" },
+    { id: "backend",  name: "백엔드",        sub: "Express · Socket.IO" },
+    { id: "gateway",  name: "게이트웨이",    sub: "Node.js · mqtt subscribe" },
+    { id: "broker",   name: "MQTT 브로커",   sub: "TLS · pub/sub" },
+    { id: "sensor",   name: "센서 노드",     sub: "ESP32 · DHT22/INA219/PIR" },
+  ];
+  const CONN_LABELS = ["HTTP GET", "Socket.IO emit", "MQTT route", "MQTT publish"];
+
+  const pipelineEl = document.getElementById("pipeline");
+  NODES.forEach((n, i) => {
+    const node = document.createElement("div");
+    node.className = "node";
+    node.id = "node-" + n.id;
+    node.innerHTML = `
+      <div class="name">${n.name}</div>
+      <div class="sub">${n.sub}</div>
+      <div class="status"><span class="dot"></span><span class="label">connected</span></div>
+    `;
+    pipelineEl.appendChild(node);
+
+    if (i < NODES.length - 1) {
+      const conn = document.createElement("div");
+      conn.className = "conn";
+      conn.id = "conn-" + i;
+      conn.innerHTML = `
+        <div class="caption">${CONN_LABELS[i]}</div>
+        <div class="track"><div class="packet"></div></div>
+      `;
+      pipelineEl.appendChild(conn);
+    }
+  });
+
+  const CARD_DEFS = [
+    { id: "temperature", label: "온도", unit: "℃", digits: 1 },
+    { id: "humidity",    label: "습도", unit: "%", digits: 1 },
+    { id: "power",       label: "소비 전력", unit: "W", digits: 1 },
+    { id: "mode",        label: "제어 모드", unit: "", digits: null },
+  ];
+  const cardsEl = document.getElementById("cards");
+  CARD_DEFS.forEach((c) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.id = "card-" + c.id;
+    if (c.id === "mode") {
+      card.innerHTML = `
+        <div class="label">${c.label}</div>
+        <div class="mode-pill idle" id="modePill">대기</div>
+        <div class="foot" id="modeFoot">감지된 사용자 없음</div>
+      `;
+    } else {
+      card.innerHTML = `
+        <div class="label">${c.label}</div>
+        <div class="value"><span id="val-${c.id}">–</span><span class="unit">${c.unit}</span></div>
+        <svg class="spark" id="spark-${c.id}" viewBox="0 0 100 26" preserveAspectRatio="none"></svg>
+      `;
+    }
+    cardsEl.appendChild(card);
+  });
+
+  const ZONES = [
+    { name: "left",   x: -100, y: 150, z: 200, yaw: -30, pitch: 0 },
+    { name: "center", x: 0,    y: 150, z: 200, yaw: 0,   pitch: 0 },
+    { name: "right",  x: 100,  y: 150, z: 200, yaw: 30,  pitch: 0 },
+  ];
+
+  const state = {
+    temperature: 24.5, humidity: 46, power: 9.5,
+    x: 0, y: 150, z: 200, yaw: 0, pitch: 0,
+    targetYaw: 0, targetPitch: 0,
+    mode: "대기", zoneIdx: -1,
+    history: { temperature: [], humidity: [], power: [] },
+  };
+
+  function pushHistory(key, v) {
+    const h = state.history[key];
+    h.push(v);
+    if (h.length > 24) h.shift();
+  }
+
+  function drawSpark(id, key, color) {
+    const svg = document.getElementById(id);
+    const h = state.history[key];
+    if (h.length < 2) return;
+    const min = Math.min(...h), max = Math.max(...h);
+    const span = Math.max(max - min, 0.5);
+    const pts = h.map((v, i) => {
+      const x = (i / (h.length - 1)) * 100;
+      const y = 24 - ((v - min) / span) * 22 - 1;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+    svg.innerHTML = `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+  }
+
+  const consoleEl = document.getElementById("console");
+  function log(tag, label, msg) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const t = new Date().toLocaleTimeString("ko-KR", { hour12: false }) + "." + String(new Date().getMilliseconds()).padStart(3, "0");
+    row.innerHTML = `<span class="t">${t}</span><span class="tag ${tag}">${label}</span><span class="msg">${msg}</span>`;
+    consoleEl.appendChild(row);
+    while (consoleEl.children.length > 80) consoleEl.removeChild(consoleEl.firstChild);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+  }
+
+  function lightNode(id, ms) {
+    const el = document.getElementById("node-" + id);
+    el.classList.add("lit");
+    setTimeout(() => el.classList.remove("lit"), ms || 500);
+  }
+  function firePacket(connIndex) {
+    if (reduceMotion) return;
+    const conn = document.getElementById("conn-" + connIndex);
+    const packet = conn.querySelector(".packet");
+    packet.classList.remove("go");
+    void packet.offsetWidth;
+    packet.classList.add("go");
+  }
+
+  const radar = document.getElementById("radar");
+  const ctx = radar.getContext("2d");
+  function drawRadar() {
+    const w = radar.width, h = radar.height, cx = w / 2, cy = h - 24;
+    const styles = getComputedStyle(document.documentElement);
+    const line = styles.getPropertyValue("--line").trim();
+    const muted = styles.getPropertyValue("--muted").trim();
+    const accent = styles.getPropertyValue("--accent").trim();
+    const text = styles.getPropertyValue("--text").trim();
+
+    ctx.clearRect(0, 0, w, h);
+
+    // range rings (0/100/200/300 cm)
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 1;
+    [70, 140, 210, 280].forEach((r) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI);
+      ctx.stroke();
+    });
+    ctx.fillStyle = muted;
+    ctx.font = "9.5px " + styles.getPropertyValue("--mono").trim();
+    ctx.fillText("300cm", cx + 282, cy - 4);
+
+    // device marker
+    ctx.fillStyle = text;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // airflow cone toward yaw
+    const yawRad = (state.yaw * Math.PI) / 180;
+    const coneLen = 260;
+    const spread = 0.22;
+    ctx.save();
+    const grad = ctx.createLinearGradient(cx, cy, cx + Math.sin(yawRad) * coneLen, cy - Math.cos(yawRad) * coneLen);
+    grad.addColorStop(0, accent + "aa");
+    grad.addColorStop(1, accent + "00");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.sin(yawRad - spread) * coneLen, cy - Math.cos(yawRad - spread) * coneLen);
+    ctx.lineTo(cx + Math.sin(yawRad + spread) * coneLen, cy - Math.cos(yawRad + spread) * coneLen);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // user position dot (mapped x:-150..150 -> full width, z:0..300 -> radius)
+    if (state.zoneIdx >= 0) {
+      const px = cx + (state.x / 150) * (w / 2 - 20);
+      const pz = cy - (state.z / 300) * (h - 40);
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.arc(px, pz, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(px, pz, 10, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  function stepTowards(cur, target, maxStep) {
+    const diff = target - cur;
+    if (Math.abs(diff) <= maxStep) return target;
+    return cur + (diff > 0 ? maxStep : -maxStep);
+  }
+
+  function pickZone() {
+    // 대략 65% 확률로 zone 감지, 35% 대기
+    const r = Math.random();
+    if (r < 0.35) return -1;
+    return Math.floor(Math.random() * ZONES.length);
+  }
+
+  function publishTick() {
+    state.zoneIdx = pickZone();
+    if (state.zoneIdx >= 0) {
+      const z = ZONES[state.zoneIdx];
+      state.x = z.x; state.y = z.y; state.z = z.z;
+      state.targetYaw = z.yaw; state.targetPitch = z.pitch;
+      state.mode = "자동 추적";
+    } else {
+      state.mode = "대기";
+    }
+
+    state.temperature += (Math.random() - 0.5) * 0.4;
+    state.temperature = Math.min(28, Math.max(21, state.temperature));
+    state.humidity += (Math.random() - 0.5) * 1.2;
+    state.humidity = Math.min(60, Math.max(35, state.humidity));
+    const basePower = state.mode === "자동 추적" ? 12.5 : 8.5;
+    state.power = basePower + (Math.random() - 0.5) * 1.6;
+
+    pushHistory("temperature", state.temperature);
+    pushHistory("humidity", state.humidity);
+    pushHistory("power", state.power);
+
+    const payload = {
+      nodeId: "node-1",
+      temperature: +state.temperature.toFixed(1),
+      humidity: +state.humidity.toFixed(1),
+      power: +state.power.toFixed(1),
+      x: state.x, y: state.y, z: state.z,
+      yaw: +state.targetYaw.toFixed(1), pitch: +state.targetPitch.toFixed(1),
+      mode: state.mode,
+    };
+    const json = JSON.stringify(payload);
+    const topic = "smart-air-guider/nodes/node-1/sensor";
+
+    // 진행 순서: 프론트엔드 → 백엔드 → 게이트웨이 → 브로커 → 센서 노드
+    // (대시보드에 보이는 값이 어디서 왔는지 원본 발행 지점까지 거슬러 추적하는 방향)
+    lightNode("frontend", 600);
+    log("frontend", "FRONTEND", `GET /sensor → ${json}`);
+    renderCards();
+
+    setTimeout(() => { firePacket(0); lightNode("backend", 600); log("backend", "BACKEND", `state 응답 (updatedAt=${new Date().toISOString()})`); }, 500);
+    setTimeout(() => { firePacket(1); lightNode("gateway", 600); log("gateway", "GATEWAY", `socket.emit('sensor:update')로 전달했던 값`); }, 1100);
+    setTimeout(() => { firePacket(2); lightNode("broker", 600); log("broker", "BROKER", `topic 라우팅 → gateway (${topic})`); }, 1700);
+    setTimeout(() => { firePacket(3); lightNode("sensor", 600); log("sensor", "SENSOR", `원본 publish → ${topic}\n${json}`); }, 2300);
+  }
+
+  function renderCards() {
+    document.getElementById("val-temperature").textContent = state.temperature.toFixed(1);
+    document.getElementById("val-humidity").textContent = state.humidity.toFixed(1);
+    document.getElementById("val-power").textContent = state.power.toFixed(1);
+    drawSpark("spark-temperature", "temperature", getComputedStyle(document.documentElement).getPropertyValue("--accent"));
+    drawSpark("spark-humidity", "humidity", getComputedStyle(document.documentElement).getPropertyValue("--accent"));
+    drawSpark("spark-power", "power", getComputedStyle(document.documentElement).getPropertyValue("--amber"));
+
+    const pill = document.getElementById("modePill");
+    const foot = document.getElementById("modeFoot");
+    pill.textContent = state.mode;
+    pill.className = "mode-pill" + (state.mode === "대기" ? " idle" : "");
+    foot.textContent = state.zoneIdx >= 0 ? `zone: ${ZONES[state.zoneIdx].name}` : "감지된 사용자 없음";
+
+    document.getElementById("valY").textContent = state.y;
+    document.getElementById("valPitch").textContent = state.pitch.toFixed(1);
+  }
+
+  function animLoop() {
+    state.yaw = stepTowards(state.yaw, state.targetYaw, 1.2);
+    state.pitch = stepTowards(state.pitch, state.targetPitch, 1.2);
+    drawRadar();
+    requestAnimationFrame(animLoop);
+  }
+
+  publishTick();
+  setInterval(publishTick, 2600);
+  requestAnimationFrame(animLoop);
+})();
+</script>
